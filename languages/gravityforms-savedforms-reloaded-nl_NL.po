@@ -1,0 +1,117 @@
+# Copyright (C) 2026 unnamed project
+# This file is distributed under the same license as the unnamed project package.
+msgid ""
+msgstr ""
+"Project-Id-Version: undefined\n"
+"POT-Creation-Date: 2026-06-04 16:04+0200\n"
+"PO-Revision-Date: \n"
+"Last-Translator: haha! - herbert hoekstra <werk@haha.nl>\n"
+"Language-Team: \n"
+"Language: nl_NL\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-KeywordsList: __;_e;_ex:1,2c;_n:1,2;_n_noop:1,2;_nx:1,2,4c;"
+"_nx_noop:1,2,3c;_x:1,2c;esc_attr__;esc_attr_e;esc_attr_x:1,2c;esc_html__;"
+"esc_html_e;esc_html_x:1,2c\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Generator: Poedit 3.0.1\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.js\n"
+
+#: gravityforms-savedforms-reloaded.php:67
+msgid "Form Options"
+msgstr "Formulier opties"
+
+#: gravityforms-savedforms-reloaded.php:77
+msgid "Save forms"
+msgstr "Bewaar formulieren"
+
+#: gravityforms-savedforms-reloaded.php:78
+msgid ""
+"Saves partially filled forms for logged in users. Requires \"Require Login\" "
+"to be enabled."
+msgstr ""
+"Bewaard deels ingevulde formulieren voor ingelogde gebruikers. Zorg dat "
+"'verplichte login' aan staat voor het formulier."
+
+#: gravityforms-savedforms-reloaded.php:81
+msgid "Enable form state"
+msgstr "Activeer formulier status"
+
+#: gravityforms-savedforms-reloaded.php:90
+msgid "Save Confirmation Message"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:91
+msgid "Message shown after saving a form for later."
+msgstr "Melding na bewaren van formulier voor later."
+
+#: gravityforms-savedforms-reloaded.php:92
+#: gravityforms-savedforms-reloaded.php:233
+#: gravityforms-savedforms-reloaded.php:255
+msgid ""
+"Your progress has been saved. You can return to this form anytime in the "
+"future to complete it."
+msgstr ""
+"Jouw invoer is bewaard. Je kan later terugkomen in het formulier om data te "
+"wijzigen of toe te voegen."
+
+#: gravityforms-savedforms-reloaded.php:101
+msgid "Save on submit"
+msgstr "Bewaar bij versturen"
+
+#: gravityforms-savedforms-reloaded.php:102
+msgid "Keep saved data after submission."
+msgstr "Onthoud bewaarde data na versturen."
+
+#: gravityforms-savedforms-reloaded.php:105
+msgid "Save form state even after submit"
+msgstr "Bewaar formulier aanpassingen ook na versturen"
+
+#: gravityforms-savedforms-reloaded.php:121
+msgid "Saved Forms"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:153
+msgid "Save for later"
+msgstr "Bewaar voor later"
+
+#: gravityforms-savedforms-reloaded.php:507
+msgid "Pending/Completed Entries"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:522
+#, php-format
+msgid "You don't have any active forms. Let's go %screate one%s"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:536
+msgid "Pending/Completed Entries for "
+msgstr "Bewaarde en afgeronde formulieren van "
+
+#: gravityforms-savedforms-reloaded.php:541
+msgid "Select A Form"
+msgstr "Selecteer een formulier"
+
+#: gravityforms-savedforms-reloaded.php:543
+msgid "Switch Form"
+msgstr "Wissel formulier"
+
+#: gravityforms-savedforms-reloaded.php:558
+msgid "Users who have completed this form"
+msgstr "Gebruikers die dit formulier hebben afgerond"
+
+#: gravityforms-savedforms-reloaded.php:562
+msgid "No users have completed this form yet."
+msgstr "Geen gebruikers hebben dit formulier afgerond."
+
+#: gravityforms-savedforms-reloaded.php:568
+msgid "Users who have saved this form for later"
+msgstr "Gebruikers die dit formulier bewaard hebben voor later"
+
+#: gravityforms-savedforms-reloaded.php:572
+msgid "No users who have saved this form for later."
+msgstr "Geen gebruikers die dit formulier bewaard hebben voor later."

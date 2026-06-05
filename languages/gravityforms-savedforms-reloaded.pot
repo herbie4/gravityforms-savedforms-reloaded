@@ -1,0 +1,98 @@
+# Copyright (C) 2026 unnamed project
+# This file is distributed under the same license as the unnamed project package.
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: unnamed project\n"
+"Project-Id-Version: undefined\n"
+"POT-Creation-Date: 2026-05-23 22:20+0200\n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-KeywordsList: __;_e;_ex:1,2c;_n:1,2;_n_noop:1,2;_nx:1,2,4c;_nx_noop:1,2,3c;_x:1,2c;esc_attr__;esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Generator: Poedit 3.0.1\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.js\n"
+
+#: gravityforms-savedforms-reloaded.php:65
+msgid "Form Options"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:75
+msgid "Save forms"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:76
+msgid "Saves partially filled forms for logged in users. Requires \"Require Login\" to be enabled."
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:79
+msgid "Enable form state"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:88
+msgid "Save on submit"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:89
+msgid "Keep saved data after submission."
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:92
+msgid "Save form state even after submit"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:108
+msgid "Saved Forms"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:141
+msgid "Save for later"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:161
+msgid "Your progress has been saved. You can return to this form anytime in the future to complete it."
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:411
+msgid "Pending/Completed Entries"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:426
+#, php-format
+msgid "You don't have any active forms. Let's go %screate one%s"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:440
+msgid "Pending/Completed Entries for "
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:445
+msgid "Select A Form"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:447
+msgid "Switch Form"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:462
+msgid "Users who have completed this form"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:466
+msgid "No users have completed this form yet."
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:472
+msgid "Users who have saved this form for later"
+msgstr ""
+
+#: gravityforms-savedforms-reloaded.php:476
+msgid "No users who have saved this form for later."
+msgstr ""
