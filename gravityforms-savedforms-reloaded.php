@@ -4,7 +4,7 @@
  * Requires Plugins: gravityforms
  * Plugin URI: https://haha.nl/wordpress-plug-in-op-maat/
  * Description: (GF 2.9+ Compatible) Adds state to forms allowing users to save form for later. Auto-loads saved forms without requiring save link. Based on Gravity Forms Saved Forms Addon by author: Gennady Kovshenin. NOTE: should be compatible with existing data from the addon it is based on.
- * Version: 2.0.3 - beta
+ * Version: 2.0.4 - beta
  * Author: herbert hoekstra - haha!
  * Author URI: https://haha.nl
  * Documentation URI: https://haha.nl/wordpress-plug-in-op-maat/
@@ -34,14 +34,12 @@ class GFStatefulForms {
 		add_filter( 'gform_form_settings_fields', array( $this, 'add_form_settings_fields' ), 10, 2 );
 		add_filter( 'gform_form_settings_before_save', array( $this, 'save_form_settings' ), 10, 1 );
 
-		/* Save Button */
+		/* Save Button and AJAX save confirmation */
 		add_filter( 'gform_submit_button', array( $this, 'form_add_save_button' ), 10, 2 );
 		add_filter( 'gform_next_button', array( $this, 'form_add_save_button' ), 10, 2 );
 
-
-		/* Save Confirmation */
+		/* Save Confirmation when using POST*/
 		add_filter( 'gform_confirmation', array( $this, 'form_save_confirmation' ), 10, 4 );
-		add_filter( 'gform_ajax_response', array( $this, 'ajax_save_confirmation' ), 10, 3 );
 
 		/* Restore logic */
 		add_action( 'wp', array( $this, 'setup_resume_token' ), 0 );
@@ -66,12 +64,14 @@ class GFStatefulForms {
 
 
 	/**
-	 * Add the form custom settings for this plugin
+	 * Add the custom form settings for this plugin
 	 *
-	 * Undocumented function long description
+	 * Enable form state radio button, save confirmation message text area, enable form state on submit radio button
 	 *
-	 * @param type array,
-	 * @return return $fields
+	 * @param array $fields
+	 * @param array $form
+	 *
+	 * @return array $fields
 	 */
 
 	public function add_form_settings_fields( $fields, $form ) {
@@ -144,8 +144,9 @@ class GFStatefulForms {
 	 *
 	 * Make sure to use gform_form_settings_before_save filter
 	 *
-	 * @param type array
-	 * @return return array $form
+	 * @param array $form
+	 *
+	 * @return array $form
 	 */
 
 	public function save_form_settings( $form ) {
@@ -161,8 +162,10 @@ class GFStatefulForms {
 	 * Default Submit Button: Works exactly as before - validates, submits, and shows default Gravity Forms confirmation
 	 * Save for Later Button: Sets the save flag, submits the form, and shows your custom save confirmation message
 	 *
-	 * @param type var, array
-	 * @return return original submit button, hidden field, and save button
+	 * @param var $button_input
+	 * @param array $form
+	 *
+	 * @return html original submit button, hidden field, and save button
 	 */
 
 	 public function form_add_save_button( $button_input, $form ) {
@@ -255,12 +258,11 @@ class GFStatefulForms {
 
 
 	/**
-	 * undocumented function summary
+	 * Bypass validation on save
 	 *
-	 * Undocumented function long description
+	 * @param boolean $validation_result
 	 *
-	 * @param type var Description
-	 * @return return type
+	 * @return boolean $validation_result
 	 */
 
 	public function bypass_validation_on_save( $validation_result ) {
@@ -270,19 +272,25 @@ class GFStatefulForms {
 
 
 	/**
-	 * undocumented function summary
+	 * Form save confirmation POST, not using AJAX
 	 *
-	 * Undocumented function long description
+	 * Fallback when not using ajax. Uses default text if no message is added in form settings.
 	 *
-	 * @param type var Description
-	 * @return return type
+	 * @param var $confirmation
+	 * @param array $form
+	 * @param array $entry
+	 * @param var $ajax
+	 *
+	 * @return html $confirmation
 	 */
 
 	public function form_save_confirmation( $confirmation, $form, $entry, $ajax ) {
+
 		if ( !isset( $form['enableFormState'] ) || !$form['enableFormState'] )
 			return $confirmation;
 
 		if ( isset( $_POST['gform_save'] ) && $_POST['gform_save'] == '1' ) {
+
 			// Get the saved message from form settings
 			$save_message = isset( $form['saveConfirmationMessage'] ) && !empty( $form['saveConfirmationMessage'] )
 				? $form['saveConfirmationMessage']
@@ -295,42 +303,13 @@ class GFStatefulForms {
 		return $confirmation;
 	}
 
-	/**
-	 * undocumented function summary
-	 *
-	 * Undocumented function long description
-	 *
-	 * @param type var Description
-	 * @return return type
-	 */
-
-	public function ajax_save_confirmation( $response, $form, $is_ajax ) {
-		if ( !$is_ajax ) {
-			return $response;
-		}
-
-		if ( !isset( $form['enableFormState'] ) || !$form['enableFormState'] ) {
-			return $response;
-		}
-
-		if ( isset( $_POST['gform_save'] ) && $_POST['gform_save'] == '1' ) {
-			// Get the saved message from form settings
-			$save_message = isset( $form['saveConfirmationMessage'] ) && !empty( $form['saveConfirmationMessage'] )
-				? $form['saveConfirmationMessage']
-				: __( 'Your progress has been saved. You can return to this form anytime in the future to complete it.', self::$textdomain );
-
-			// For AJAX, Gravity Forms expects the confirmation HTML in a specific format
-			// The form_saved_message div is what gets displayed
-			$response['confirmation'] = '<div class="form_saved_message">' . $save_message . '</div>';
-
-			// Also add a fallback class that Gravity Forms might use
-			if ( strpos( $response['confirmation'], 'gform_confirmation_message' ) === false ) {
-				$response['confirmation'] .= '<div class="gform_confirmation_message" style="display:none;">' . $save_message . '</div>';
-			}
-		}
-
-		return $response;
-	}
+/**
+ * Make the save button bypass validation
+ *
+ * @param array $form
+ *
+ * @return add_filter call bypass_validation_on_save()
+ */
 
 	public function handle_save_button( $form ) {
 	// Check if our save flag is set
@@ -344,41 +323,43 @@ class GFStatefulForms {
 	/**
 	 * Simplified: Just store the resume token directly with visible debug
 	 *
-	 * Undocumented function long description
+	 * @param array $submission
+	 * @param array $resume_token
+	 * @param array $form
+	 * @param array $entry
 	 *
-	 * @param type var Description
-	 * @return return type
+	 * @return update_user_meta
 	 */
 
- public function form_save( $submission, $resume_token, $form, $entry ) {
+	 public function form_save( $submission, $resume_token, $form, $entry ) {
 
-	// Always log so we can see if this function is called
-// 	error_log('=== GF SAVED FORMS: form_save() called ===');
-// 	error_log('Form ID: ' . $form['id']);
-// 	error_log('Resume token: ' . $resume_token);
+	 	if ( !isset( $form['enableFormState'] ) || !$form['enableFormState'] ) {
+	 		return;
+	 	}
 
- 	if ( !isset( $form['enableFormState'] ) || !$form['enableFormState'] ) {
-// 		error_log('GF SAVED FORMS: Form state not enabled, skipping save');
- 		return;
- 	}
+	 	$user = wp_get_current_user();
+	 	if ( !$user ) {
+	 		return;
+	 	}
 
- 	$user = wp_get_current_user();
- 	if ( !$user ) {
-// 		error_log('GF SAVED FORMS: No logged in user, skipping save');
- 		return;
- 	}
+	 	// Simply store the resume token directly
+	 	update_user_meta( $user->ID, 'has_pending_form_' . $form['id'], $resume_token );
 
-// 	error_log('GF SAVED FORMS: User ID: ' . $user->ID);
+	 	// Verify it was saved
+	 	$verify = get_user_meta( $user->ID, 'has_pending_form_' . $form['id'], true );
 
- 	// Simply store the resume token directly
- 	update_user_meta( $user->ID, 'has_pending_form_' . $form['id'], $resume_token );
+	 }
 
-// 	error_log('GF SAVED FORMS: Updated user meta has_pending_form_' . $form['id'] . ' to: ' . $resume_token);
-
- 	// Verify it was saved
- 	$verify = get_user_meta( $user->ID, 'has_pending_form_' . $form['id'], true );
-// 	error_log('GF SAVED FORMS: Verification read back: ' . $verify);
- }
+/**
+ * undocumented function summary
+ *
+ * Undocumented function long description
+ *
+ * @param array $entry
+ * @param array $form
+ *
+ * @return update_user_meta delete_user_meta
+ */
 
 	public function form_submit( $entry, $form ) {
 		if ( !isset( $form['enableFormState'] ) || !$form['enableFormState'] )
@@ -400,13 +381,23 @@ class GFStatefulForms {
 	 /**
 	  * Get the correct UUID for a user's saved form using user ID
 	  *
-	  * This is the most reliable method
+		* First, check if we have a stored UUID in the backup meta
+		*
+	  * If backup doesn't exist or is invalid, search all drafts for this form
+		* and look for the user ID in the submission data
+		*
+		* Check if this draft contains the user ID, Look in submitted_values for the user ID
+		*
+		* If no match found, return the most recent draft for this form (fallback for existing data)
 	  *
-	  * @param type var Description
-	  * @return return type
+	  * @param array $user
+		* @param var $form_id
+		*
+	  * @return var $uuid
 	  */
 
 	private function get_user_draft_uuid_by_user_id( $user, $form_id ) {
+
 		global $wpdb;
 		$table_name = $wpdb->prefix . 'gf_draft_submissions';
 
@@ -465,49 +456,41 @@ class GFStatefulForms {
 	}
 
 /**
- * undocumented function summary
+ * Set up resume token
  *
- * Undocumented function long description
+ * Get the stored resume token from user meta
+ * Inject the resume token into the form url on load form
  *
- * @param type var Description
- * @return return type
+ * @param void
+ * @return wp_redirect
  */
 
 	public function setup_resume_token() {
-//		error_log('=== GF SAVED FORMS: setup_resume_token() called ===');
 
 		if ( is_admin() ) {
-//			error_log('GF SAVED FORMS: In admin, skipping');
 			return;
 		}
 
 		if ( isset( $_POST['gform_submit'] ) || isset( $_POST['gform_save'] ) ) {
-//			error_log('GF SAVED FORMS: Form submitting, skipping');
 			return;
 		}
 
 		if ( isset( $_GET['gf_token'] ) ) {
-//			error_log('GF SAVED FORMS: Token already in URL: ' . $_GET['gf_token']);
 			return;
 		}
 
 		$user = wp_get_current_user();
 		if ( !$user ) {
-//			error_log('GF SAVED FORMS: No logged in user');
 			return;
 		}
 
-//		error_log('GF SAVED FORMS: User ID: ' . $user->ID);
-
 		global $post;
 		if ( !$post ) {
-//			error_log('GF SAVED FORMS: No post object');
 			return;
 		}
 
 		if ( preg_match( '/\[gravityform.*id=["\']?([0-9]+)["\']?.*\]/i', $post->post_content, $matches ) ) {
 			$form_id = intval( $matches[1] );
-	//		error_log('GF SAVED FORMS: Found form ID: ' . $form_id);
 
 			$form = GFAPI::get_form( $form_id );
 
@@ -516,21 +499,16 @@ class GFStatefulForms {
 				 isset( $form['requireLogin'] ) && $form['requireLogin'] ) {
 
 				$stored_token = get_user_meta( $user->ID, 'has_pending_form_' . $form_id, true );
-//				error_log('GF SAVED FORMS: Stored token for user: ' . ($stored_token ?: 'none'));
 
 				if ( $stored_token ) {
 					$current_url = ( isset( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on' ? "https" : "http" ) . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
 					$separator = ( strpos( $current_url, '?' ) !== false ) ? '&' : '?';
 					$redirect_url = $current_url . $separator . 'gf_token=' . urlencode( $stored_token );
 
-//					error_log('GF SAVED FORMS: Redirecting to: ' . $redirect_url);
-
 					wp_redirect( $redirect_url );
 					exit;
 				}
 			}
-		} else {
-//			error_log('GF SAVED FORMS: No gravityform shortcode found on page');
 		}
 	}
 
@@ -540,11 +518,13 @@ class GFStatefulForms {
 	 *
 	 * Undocumented function long description
 	 *
-	 * @param type var Description
-	 * @return return type
+	 * @param var $token
+	 *
+	 * @return var $token
 	 */
 
 	public function provide_resume_token( $token ) {
+
 		if ( !empty( $token ) ) {
 			return $token;
 		}
@@ -595,12 +575,13 @@ class GFStatefulForms {
 	}
 
 /**
- * undocumented function summary
+ * Add menu item to GF menu
  *
- * Undocumented function long description
+ * Sets up the pending/completed menu item
  *
- * @param type var Description
- * @return return type
+ * @param array $menu items
+ *
+ * @return array $menu_items
  */
 
 	public function add_pending_completed_entries_item( $menu_items ) {
@@ -614,16 +595,18 @@ class GFStatefulForms {
 		$menu_items[] = $pending_completed_item;
 		return $menu_items;
 	}
+
 /**
- * undocumented function summary
+ * Pending/Cpmpleted entries page
  *
- * Undocumented function long description
+ * Get all users with pending or completed entries.
  *
- * @param type var Description
- * @return return type
+ * @param void
+ * @return html
  */
 
 	public function pending_completed_entries_screen() {
+
 		$forms = RGFormsModel::get_forms( null, 'title' );
 		$id = RGForms::get( 'id' );
 
@@ -698,6 +681,17 @@ class GFStatefulForms {
 		</script>
 		<?php
 	}
+
+/**
+ * Get users for completed/pending forms
+ *
+ * is used by pending_completed_entries_screen()
+ *
+ * @param var $form_id
+ * @param boolean $completed
+ *
+ * @return array $users
+ */
 
 	public function get_users( $form_id, $completed = true ) {
 		if ( !$completed ) {
