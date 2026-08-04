@@ -4,7 +4,7 @@
  * Requires Plugins: gravityforms
  * Plugin URI: https://haha.nl/wordpress-plug-in-op-maat/
  * Description: (GF 2.9+ Compatible) Adds state to forms allowing users to save form for later. Auto-loads saved forms without requiring save link. Based on Gravity Forms Saved Forms Addon by author: Gennady Kovshenin. NOTE: should be compatible with existing data from the addon it is based on.
- * Version: 2.0.5 beta
+ * Version: 2.1.0
  * Author: herbert hoekstra - haha!
  * Author URI: https://haha.nl
  * Documentation URI: https://haha.nl/wordpress-plug-in-op-maat/
@@ -17,10 +17,23 @@ class GFStatefulForms {
 	private static $textdomain = 'gravityforms-savedforms-reloaded';
 
 	public function __construct() {
+
+		require_once plugin_dir_path(__FILE__) . '/vendor/autoload.php';
+
 		if ( is_object( self::$instance ) && get_class( self::$instance == __CLASS__ ) )
 			wp_die( __CLASS__.' can have only one instance' );
 		self::$instance = $this;
 		$this->bootstrap();
+
+		// updater and checker
+		$myUpdateChecker = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+		'https://github.com/herbie4/gravityforms-savedforms-reloaded/',
+		__FILE__,
+		'gravityforms-savedforms-reloaded.php'
+	);
+		//Set the branch that contains the stable release.
+		$myUpdateChecker->setBranch('master');
+
 	}
 
 	public static function get_instance() {
@@ -61,6 +74,7 @@ class GFStatefulForms {
 	public function early_init() {
 		load_plugin_textdomain( self::$textdomain, false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
 	}
+
 
 
 	/**
