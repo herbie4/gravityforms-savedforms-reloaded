@@ -4,7 +4,7 @@
  * Requires Plugins: gravityforms
  * Plugin URI: https://haha.nl/wordpress-plug-in-op-maat/
  * Description: (GF 2.9+ Compatible) Adds state to forms allowing users to save form for later. Auto-loads saved forms without requiring save link. Based on Gravity Forms Saved Forms Addon by author: Gennady Kovshenin. NOTE: should be compatible with existing data from the addon it is based on.
- * Version: 2.1.0
+ * Version: 2.1.1
  * Author: herbert hoekstra - haha!
  * Author URI: https://haha.nl
  * Documentation URI: https://haha.nl/wordpress-plug-in-op-maat/
@@ -621,8 +621,9 @@ class GFStatefulForms {
 
 	public function pending_completed_entries_screen() {
 
-		$forms = RGFormsModel::get_forms( null, 'title' );
-		$id = RGForms::get( 'id' );
+		$forms = GFFormsModel::get_forms( null, 'title' );
+
+		$id = GFForms::get( 'id' );
 
 		if( sizeof($forms) == 0 ) {
 			?>
@@ -636,7 +637,7 @@ class GFStatefulForms {
 			else $form_id = $id;
 		}
 
-		$form = RGFormsModel::get_form_meta( $form_id );
+		$form = GFFormsModel::get_form_meta( $form_id );
 		?>
 		<link rel="stylesheet" href="<?php echo GFCommon::get_base_url() ?>/css/admin.css" type="text/css" />
 		<div class="wrap">
