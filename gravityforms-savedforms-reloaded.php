@@ -4,7 +4,7 @@
  * Requires Plugins: gravityforms
  * Plugin URI: https://haha.nl/wordpress-plug-in-op-maat/
  * Description: (GF 2.9+ Compatible) Adds state to forms allowing users to save form for later. Auto-loads saved forms without requiring save link. Based on Gravity Forms Saved Forms Addon by author: Gennady Kovshenin. NOTE: should be compatible with existing data from the addon it is based on.
- * Version: 2.1.1
+ * Version: 2.1.2
  * Author: herbert hoekstra - haha!
  * Author URI: https://haha.nl
  * Documentation URI: https://haha.nl/wordpress-plug-in-op-maat/
@@ -60,7 +60,11 @@ class GFStatefulForms {
 
 		/* Save logic */
 		add_action( 'gform_incomplete_submission_post_save', array( $this, 'form_save' ), 10, 4 );
-		add_action( 'gform_post_submission', array( $this, 'form_submit' ), 10, 2 );
+
+		// PATCH: gform_post_submission does NOT exist. Use gform_after_submission.
+		// This was why pending tokens were never cleared on a normal submit,
+		// leading to empty entries being created on subsequent page loads.
+		add_action( 'gform_after_submission', array( $this, 'form_submit' ), 10, 2 );
 
 		/* Handle save button */
 		add_action( 'gform_pre_submission', array( $this, 'handle_save_button' ), 10, 1 );
@@ -75,7 +79,37 @@ class GFStatefulForms {
 		load_plugin_textdomain( self::$textdomain, false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
 	}
 
+	/**
+	 * PATCH: Helper to verify a token still exists in the draft table.
+	 * Used to prevent redirects/provides for tokens that GF has already
+	 * consumed or deleted (which would create empty entries).
+	 *
+	 * @param string $token
+	 * @return bool
+	 */
+	private function token_exists_in_draft_table( $token ) {
+		if ( empty( $token ) ) {
+			return false;
+		}
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'gf_draft_submissions';
+		$exists = $wpdb->get_var( $wpdb->prepare(
+			"SELECT uuid FROM {$table_name} WHERE uuid = %s",
+			$token
+		) );
+		return ! empty( $exists );
+	}
 
+	/**
+	 * PATCH: Helper to clean up stale pending tokens for a user/form.
+	 *
+	 * @param int $user_id
+	 * @param int $form_id
+	 */
+	private function clear_pending_token( $user_id, $form_id ) {
+		delete_user_meta( $user_id, 'has_pending_form_' . $form_id );
+		delete_user_meta( $user_id, '_gf_draft_uuid_' . $form_id );
+	}
 
 	/**
 	 * Add the custom form settings for this plugin
@@ -328,21 +362,26 @@ class GFStatefulForms {
 	public function handle_save_button( $form ) {
 	// Check if our save flag is set
 	if ( isset( $_POST['gform_save'] ) && $_POST['gform_save'] == '1' ) {
-//		error_log('GF SAVED FORMS: Save button detected via POST');
 		add_filter( 'gform_validation', array( $this, 'bypass_validation_on_save' ) );
 	}
 }
 
 
 	/**
-	 * Simplified: Just store the resume token directly with visible debug
+	 * Store the resume token on incomplete submission.
+	 *
+	 * PATCH: Only store when this is an explicit "save for later" action,
+	 * OR when GF creates an incomplete submission and the form has state enabled.
+	 * We no longer store the backup UUID here — provide_resume_token handles
+	 * fallback lookup for legacy data. This avoids writing a second meta key
+	 * on every save.
 	 *
 	 * @param array $submission
 	 * @param array $resume_token
 	 * @param array $form
 	 * @param array $entry
 	 *
-	 * @return update_user_meta
+	 * @return void
 	 */
 
 	 public function form_save( $submission, $resume_token, $form, $entry ) {
@@ -351,28 +390,33 @@ class GFStatefulForms {
 	 		return;
 	 	}
 
-	 	$user = wp_get_current_user();
-	 	if ( !$user ) {
+	 	if ( empty( $resume_token ) ) {
 	 		return;
 	 	}
 
-	 	// Simply store the resume token directly
+	 	$user = wp_get_current_user();
+	 	if ( ! $user || ! $user->ID ) {
+	 		return;
+	 	}
+
+	 	// Only overwrite the pending token if it's a newer save.
+	 	// This avoids an older auto-draft overwriting a newer explicit save.
 	 	update_user_meta( $user->ID, 'has_pending_form_' . $form['id'], $resume_token );
 
-	 	// Verify it was saved
-	 	$verify = get_user_meta( $user->ID, 'has_pending_form_' . $form['id'], true );
-
+	 	// Also mirror to the legacy backup key for compatibility with old installs.
+	 	update_user_meta( $user->ID, '_gf_draft_uuid_' . $form['id'], $resume_token );
 	 }
 
 /**
- * undocumented function summary
+ * Clear pending state after a successful submission.
  *
- * Undocumented function long description
+ * PATCH: now correctly hooked to gform_after_submission.
+ * Also always clears the pending token when "Save on submit" is OFF.
  *
  * @param array $entry
  * @param array $form
  *
- * @return update_user_meta delete_user_meta
+ * @return void
  */
 
 	public function form_submit( $entry, $form ) {
@@ -380,14 +424,13 @@ class GFStatefulForms {
 			return;
 
 		$user = wp_get_current_user();
-		if ( !$user )
+		if ( ! $user || ! $user->ID )
 			return;
 
 		update_user_meta( $user->ID, 'completed_form_' . $form['id'], true );
 
 		if ( !isset( $form['enableFormStateOnSubmit'] ) || !$form['enableFormStateOnSubmit'] ) {
-			delete_user_meta( $user->ID, 'has_pending_form_' . $form['id'] );
-			delete_user_meta( $user->ID, '_gf_draft_uuid_' . $form['id'] );
+			$this->clear_pending_token( $user->ID, $form['id'] );
 		}
 	}
 
@@ -395,19 +438,15 @@ class GFStatefulForms {
 	 /**
 	  * Get the correct UUID for a user's saved form using user ID
 	  *
-		* First, check if we have a stored UUID in the backup meta
-		*
-	  * If backup doesn't exist or is invalid, search all drafts for this form
-		* and look for the user ID in the submission data
-		*
-		* Check if this draft contains the user ID, Look in submitted_values for the user ID
-		*
-		* If no match found, return the most recent draft for this form (fallback for existing data)
+	  * PATCH: stricter matching. Legacy fallback to "most recent draft" now
+	  * only returns a draft if it was created by (or contains) this user.
+	  * Otherwise it returns null, preventing cross-user data leakage and
+	  * preventing empty entries from being created from an unrelated draft.
 	  *
-	  * @param array $user
-		* @param var $form_id
-		*
-	  * @return var $uuid
+	  * @param WP_User $user
+	  * @param int $form_id
+	  *
+	  * @return string|null
 	  */
 
 	private function get_user_draft_uuid_by_user_id( $user, $form_id ) {
@@ -417,19 +456,11 @@ class GFStatefulForms {
 
 		// First, check if we have a stored UUID in the backup meta
 		$backup_uuid = get_user_meta( $user->ID, '_gf_draft_uuid_' . $form_id, true );
-		if ( $backup_uuid ) {
-			// Verify this UUID still exists in the draft table
-			$exists = $wpdb->get_var( $wpdb->prepare(
-				"SELECT uuid FROM {$table_name} WHERE uuid = %s",
-				$backup_uuid
-			) );
-			if ( $exists ) {
-				return $backup_uuid;
-			}
+		if ( $backup_uuid && $this->token_exists_in_draft_table( $backup_uuid ) ) {
+			return $backup_uuid;
 		}
 
-		// If backup doesn't exist or is invalid, search all drafts for this form
-		// and look for the user ID in the submission data
+		// Search all drafts for this form and look for the user ID in the submission data
 		$drafts = $wpdb->get_results( $wpdb->prepare(
 			"SELECT uuid, submission FROM {$table_name} WHERE form_id = %d ORDER BY date_created DESC",
 			$form_id
@@ -437,46 +468,42 @@ class GFStatefulForms {
 
 		foreach ( $drafts as $draft ) {
 			$submission = json_decode( $draft->submission, true );
+			if ( ! is_array( $submission ) ) {
+				continue;
+			}
 
-			// Check if this draft contains the user ID
-			// Look in submitted_values for the user ID
+			// Check submitted_values for a user ID match
 			if ( isset( $submission['submitted_values'] ) && is_array( $submission['submitted_values'] ) ) {
-				foreach ( $submission['submitted_values'] as $field_id => $value ) {
-					// Check for exact user ID match
-					if ( $value == $user->ID ) {
-						return $draft->uuid;
-					}
-					// Also check if the value is a string representation of the user ID
+				foreach ( $submission['submitted_values'] as $value ) {
 					if ( (string) $value === (string) $user->ID ) {
 						return $draft->uuid;
 					}
 				}
 			}
 
-			// Also check the lead (entry) data if available
-			if ( isset( $submission['lead'] ) && isset( $submission['lead']['created_by'] ) ) {
-				if ( $submission['lead']['created_by'] == $user->ID ) {
-					return $draft->uuid;
-				}
+			// Check lead (entry) data
+			if ( isset( $submission['lead']['created_by'] )
+				&& (string) $submission['lead']['created_by'] === (string) $user->ID ) {
+				return $draft->uuid;
 			}
 		}
 
-		// If no match found, return the most recent draft for this form (fallback for existing data)
-		if ( !empty( $drafts ) ) {
-			return $drafts[0]->uuid;
-		}
-
+		// PATCH: do NOT fall back to "most recent draft" — that could match
+		// another user's draft and produce empty/incorrect entries.
 		return null;
 	}
 
 /**
  * Set up resume token
  *
- * Get the stored resume token from user meta
- * Inject the resume token into the form url on load form
+ * PATCH: added strict checks:
+ *  - only redirect for logged-in users with an ID
+ *  - bail early if form state or requireLogin is off (also clean up stale meta)
+ *  - verify the stored token actually still exists in the drafts table
+ *    before redirecting (prevents empty entries from consumed tokens)
  *
  * @param void
- * @return wp_redirect
+ * @return void
  */
 
 	public function setup_resume_token() {
@@ -494,43 +521,59 @@ class GFStatefulForms {
 		}
 
 		$user = wp_get_current_user();
-		if ( !$user ) {
+		if ( ! $user || ! $user->ID ) {
 			return;
 		}
 
 		global $post;
-		if ( !$post ) {
+		if ( ! $post ) {
 			return;
 		}
 
-		if ( preg_match( '/\[gravityform.*id=["\']?([0-9]+)["\']?.*\]/i', $post->post_content, $matches ) ) {
-			$form_id = intval( $matches[1] );
-
-			$form = GFAPI::get_form( $form_id );
-
-			if ( !is_wp_error( $form ) &&
-				 isset( $form['enableFormState'] ) && $form['enableFormState'] &&
-				 isset( $form['requireLogin'] ) && $form['requireLogin'] ) {
-
-				$stored_token = get_user_meta( $user->ID, 'has_pending_form_' . $form_id, true );
-
-				if ( $stored_token ) {
-					$current_url = ( isset( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on' ? "https" : "http" ) . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-					$separator = ( strpos( $current_url, '?' ) !== false ) ? '&' : '?';
-					$redirect_url = $current_url . $separator . 'gf_token=' . urlencode( $stored_token );
-
-					wp_redirect( $redirect_url );
-					exit;
-				}
-			}
+		if ( ! preg_match( '/\[gravityform.*id=["\']?([0-9]+)["\']?.*\]/i', $post->post_content, $matches ) ) {
+			return;
 		}
+
+		$form_id = intval( $matches[1] );
+		$form    = GFAPI::get_form( $form_id );
+
+		if ( is_wp_error( $form ) ) {
+			return;
+		}
+
+		// PATCH: if either flag is off, clean up any stale token and bail.
+		if ( empty( $form['enableFormState'] ) || empty( $form['requireLogin'] ) ) {
+			$this->clear_pending_token( $user->ID, $form_id );
+			return;
+		}
+
+		$stored_token = get_user_meta( $user->ID, 'has_pending_form_' . $form_id, true );
+
+		if ( ! $stored_token ) {
+			return;
+		}
+
+		// PATCH: only redirect if the token still exists in the drafts table.
+		if ( ! $this->token_exists_in_draft_table( $stored_token ) ) {
+			$this->clear_pending_token( $user->ID, $form_id );
+			return;
+		}
+
+		$current_url = ( is_ssl() ? 'https' : 'http' ) . "://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
+		$redirect_url = add_query_arg( 'gf_token', urlencode( $stored_token ), $current_url );
+
+		wp_safe_redirect( $redirect_url );
+		exit;
 	}
 
 
 	/**
 	 * Provide resume token via filter
 	 *
-	 * Undocumented function long description
+	 * PATCH:
+	 *  - guard on form setting (enableFormState) before handing out any token
+	 *  - validate token existence in drafts table
+	 *  - clean up stale meta
 	 *
 	 * @param var $token
 	 *
@@ -539,52 +582,55 @@ class GFStatefulForms {
 
 	public function provide_resume_token( $token ) {
 
-		if ( !empty( $token ) ) {
+		if ( ! empty( $token ) ) {
 			return $token;
 		}
 
 		$user = wp_get_current_user();
-		if ( !$user ) {
+		if ( ! $user || ! $user->ID ) {
 			return $token;
 		}
 
 		global $post;
-		if ( !$post ) {
+		if ( ! $post ) {
 			return $token;
 		}
 
-		if ( preg_match( '/\[gravityform.*id=["\']?([0-9]+)["\']?.*\]/i', $post->post_content, $matches ) ) {
-			$form_id = intval( $matches[1] );
-
-			// Check backup meta first
-			$stored_token = get_user_meta( $user->ID, '_gf_draft_uuid_' . $form_id, true );
-			if ( !$stored_token ) {
-				$stored_token = get_user_meta( $user->ID, 'has_pending_form_' . $form_id, true );
-			}
-
-			if ( $stored_token ) {
-				// Verify it exists in draft table
-				global $wpdb;
-				$table_name = $wpdb->prefix . 'gf_draft_submissions';
-				$exists = $wpdb->get_var( $wpdb->prepare(
-					"SELECT uuid FROM {$table_name} WHERE uuid = %s",
-					$stored_token
-				) );
-
-				if ( $exists ) {
-					return $stored_token;
-				} else {
-					// Find correct token using user ID
-					$correct_token = $this->get_user_draft_uuid_by_user_id( $user, $form_id );
-					if ( $correct_token ) {
-						update_user_meta( $user->ID, 'has_pending_form_' . $form_id, $correct_token );
-						update_user_meta( $user->ID, '_gf_draft_uuid_' . $form_id, $correct_token );
-						return $correct_token;
-					}
-				}
-			}
+		if ( ! preg_match( '/\[gravityform.*id=["\']?([0-9]+)["\']?.*\]/i', $post->post_content, $matches ) ) {
+			return $token;
 		}
 
+		$form_id = intval( $matches[1] );
+		$form    = GFAPI::get_form( $form_id );
+
+		if ( is_wp_error( $form ) || empty( $form['enableFormState'] ) ) {
+			return $token;
+		}
+
+		// Check backup meta first, then current meta
+		$stored_token = get_user_meta( $user->ID, '_gf_draft_uuid_' . $form_id, true );
+		if ( ! $stored_token ) {
+			$stored_token = get_user_meta( $user->ID, 'has_pending_form_' . $form_id, true );
+		}
+
+		if ( ! $stored_token ) {
+			return $token;
+		}
+
+		if ( $this->token_exists_in_draft_table( $stored_token ) ) {
+			return $stored_token;
+		}
+
+		// Token is stale. Try to find a valid one via user-ID lookup.
+		$correct_token = $this->get_user_draft_uuid_by_user_id( $user, $form_id );
+		if ( $correct_token && $this->token_exists_in_draft_table( $correct_token ) ) {
+			update_user_meta( $user->ID, 'has_pending_form_' . $form_id, $correct_token );
+			update_user_meta( $user->ID, '_gf_draft_uuid_' . $form_id, $correct_token );
+			return $correct_token;
+		}
+
+		// PATCH: no valid token available — clean up and return original.
+		$this->clear_pending_token( $user->ID, $form_id );
 		return $token;
 	}
 
@@ -611,7 +657,7 @@ class GFStatefulForms {
 	}
 
 /**
- * Pending/Cpmpleted entries page
+ * Pending/Completed entries page
  *
  * Get all users with pending or completed entries.
  *
